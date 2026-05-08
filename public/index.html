@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>CRM System</title>
+    <link rel="stylesheet" href="style.css">
+
+    <style>
+        .money::after {
+            content: " ₽";
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    CRM SYSTEM
+</header>
+
+<div class="container">
+
+    <div class="stats">
+        <div class="stat">
+            <h3 id="count">0</h3>
+            <p>Товары</p>
+        </div>
+
+        <div class="stat">
+            <h3 id="items">0</h3>
+            <p>Количество</p>
+        </div>
+
+        <div class="stat">
+            <h3 id="value">0</h3>
+            <p>Общая стоимость (₽)</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Добавить товар</h3>
+
+        <input id="name" placeholder="Название">
+        <input id="quantity" placeholder="Количество" type="number">
+        <input id="price" placeholder="Цена (₽)" type="number">
+
+        <button onclick="addProduct()">Добавить</button>
+    </div>
+
+    <div class="card">
+        <h3>Список товаров</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Название</th>
+                    <th>Кол-во</th>
+                    <th>Цена (₽)</th>
+                    <th>Итого (₽)</th>
+                    <th>Действие</th>
+                </tr>
+            </thead>
+            <tbody id="list"></tbody>
+        </table>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
