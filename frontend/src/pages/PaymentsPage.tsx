@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Typography, Table, Button, Tag, Space, Modal, Form, Input, Select, InputNumber, message, DatePicker } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { Typography, Table, Button, Tag, Modal, Form, Input, Select, InputNumber, message, DatePicker } from 'antd';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 const { Option } = Select;
