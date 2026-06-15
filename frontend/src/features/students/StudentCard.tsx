@@ -69,9 +69,9 @@ export default function StudentCard({ student, onBack }: StudentCardProps) {
           <Button onClick={() => setShowAttendance(false)}>Вернуться к информации</Button>
         </div>
       )}
-      
+
       <Divider>Быстрые действия</Divider>
-      
+
       <Space wrap>
         {/* Always visible */}
         <Button icon={<CalendarOutlined />} onClick={() => setShowAttendance(!showAttendance)}>

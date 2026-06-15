@@ -1,50 +1,48 @@
-import { Typography, Card, Row, Col, Statistic } from 'antd';
+import { Typography, Card, Row, Col, Statistic, message } from 'antd';
 import { UserOutlined, BookOutlined, DollarOutlined } from '@ant-design/icons';
 import { useState, useEffect } from 'react';
-import type { Student, Course, Payment } from '../types';
+import { api } from '../services/api';
 
 const { Title } = Typography;
 
-// Shared mock data (same as in other pages)
-const mockStudents: Student[] = [
-  { key: '1', name: 'Иван Иванов', email: 'ivan@example.com', status: 'Активен', course: ['Основы React', 'UI Дизайн'], debt: 15000 },
-  { key: '2', name: 'Алексей Смирнов', email: 'alexey@example.com', status: 'Отстранен', course: ['Продвинутый TypeScript'], debt: 40000 },
-  { key: '3', name: 'Мария Петрова', email: 'maria@example.com', status: 'Активен', course: ['Node.js Backend'], debt: 0 },
-];
-
-const mockCourses: Course[] = [
-  { key: '1', name: 'Основы React', teacher: 'Анна Преподаватель', studentsCount: 15, status: 'Активен' },
-  { key: '2', name: 'Продвинутый TypeScript', teacher: 'Иван Сергеев', studentsCount: 8, status: 'Активен' },
-];
-
-const mockPayments: Payment[] = [
-  { key: '1', id: 'TXN-1001', student: 'Иван Иванов', amount: 15000, date: '2026-05-01', status: 'Оплачен' },
-  { key: '2', id: 'TXN-1002', student: 'Алексей Смирнов', amount: 40000, date: '2026-05-02', status: 'Просрочен' },
-  { key: '3', id: 'TXN-1003', student: 'Мария Петрова', amount: 15000, date: '2026-05-04', status: 'В ожидании' },
-];
-
 export default function DashboardPage() {
-  const [students, setStudents] = useState<Student[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [studentsCount, setStudentsCount] = useState(0);
+  const [activeStudentsCount, setActiveStudentsCount] = useState(0);
+  const [coursesCount, setCoursesCount] = useState(0);
+  const [paymentsTotal, setPaymentsTotal] = useState(0);
+  const [pendingPayments, setPendingPayments] = useState(0);
+  const [totalDebt, setTotalDebt] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate API call
-    const timer = setTimeout(() => {
-      setStudents(mockStudents);
-      setCourses(mockCourses);
-      setPayments(mockPayments);
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    fetchDashboardData();
   }, []);
 
-  const activeStudents = students.filter(s => s.status === 'Активен').length;
-  const totalDebt = students.reduce((sum, s) => sum + s.debt, 0);
-  const monthlyRevenue = payments
-    .filter(p => p.status === 'Оплачен')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [students, courses, payments] = await Promise.all([
+        api.students.list(),
+        api.courses.list(),
+        api.payments.list(),
+      ]);
+
+      setStudentsCount(students.length);
+      setActiveStudentsCount(students.filter((s: any) => s.status === 'Активен').length);
+      setCoursesCount(courses.filter((c: any) => (c.status || 'Активен') === 'Активен').length);
+      setPaymentsTotal(
+        payments
+          .filter((p: any) => p.status === 'Оплачен')
+          .reduce((sum: number, p: any) => sum + (p.amount || 0), 0)
+      );
+      setPendingPayments(payments.filter((p: any) => p.status === 'В ожидании').length);
+      setTotalDebt(students.reduce((sum: number, s: any) => sum + (s.debt || 0), 0));
+    } catch (err: any) {
+      message.error(err.message || 'Ошибка загрузки данных дашборда');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -54,9 +52,9 @@ export default function DashboardPage() {
           <Card loading={loading}>
             <Statistic
               title="Всего студентов"
-              value={students.length}
+              value={studentsCount}
               prefix={<UserOutlined />}
-              suffix={<span style={{ fontSize: 14, color: '#52c41a' }}>({activeStudents} активных)</span>}
+              suffix={<span style={{ fontSize: 14, color: '#52c41a' }}>({activeStudentsCount} активных)</span>}
             />
           </Card>
         </Col>
@@ -64,7 +62,7 @@ export default function DashboardPage() {
           <Card loading={loading}>
             <Statistic
               title="Активных курсов"
-              value={courses.filter(c => c.status === 'Активен').length}
+              value={coursesCount}
               prefix={<BookOutlined />}
             />
           </Card>
@@ -73,7 +71,7 @@ export default function DashboardPage() {
           <Card loading={loading}>
             <Statistic
               title="Месячная выручка"
-              value={monthlyRevenue}
+              value={paymentsTotal}
               prefix={<DollarOutlined />}
               suffix="₽"
               valueStyle={{ color: '#3f8600' }}
@@ -97,7 +95,7 @@ export default function DashboardPage() {
           <Card loading={loading}>
             <Statistic
               title="Ожидают оплаты"
-              value={payments.filter(p => p.status === 'В ожидании').length}
+              value={pendingPayments}
               valueStyle={{ color: '#d4b106' }}
             />
           </Card>

@@ -1,21 +1,18 @@
-import { useState } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Tag, message, Typography, Space, Popconfirm, Tooltip, Empty } from 'antd';
+import { useState, useEffect } from 'react';
+import { Table, Button, Modal, Form, Input, Select, Tag, message, Typography, Space, Popconfirm, Tooltip, Empty, Spin } from 'antd';
 import { UserAddOutlined, EditOutlined, DeleteOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useAuthStore } from '../store/authStore';
 import { hasPermission, roleConfig, type Role } from '../config/roles';
+import { api } from '../services/api';
+import type { CRMUser } from '../types';
 
 const { Title } = Typography;
 
-const initialUsers = [
-  { key: '1', name: 'Админ Админов', email: 'admin@school.com', role: 'Admin' as Role, status: 'Активен' },
-  { key: '2', name: 'Менеджер Менеджеров', email: 'manager@school.com', role: 'Manager' as Role, status: 'Активен' },
-  { key: '3', name: 'Анна Преподаватель', email: 'anna@school.com', role: 'Teacher' as Role, status: 'Заблокирован' },
-];
-
 export default function UsersPage() {
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState<CRMUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingUser, setEditingUser] = useState<typeof initialUsers[0] | null>(null);
+  const [editingUser, setEditingUser] = useState<CRMUser | null>(null);
   const [form] = Form.useForm();
 
   const currentUserRole = useAuthStore((s) => s.user?.role);
@@ -26,24 +23,56 @@ export default function UsersPage() {
   const canDelete = hasPermission(currentUserRole, 'users.delete');
   const canToggleStatus = hasPermission(currentUserRole, 'users.toggle_status');
 
-  const handleToggleStatus = (key: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'Активен' ? 'Заблокирован' : 'Активен';
-    setUsers(users.map(u => u.key === key ? { ...u, status: newStatus } : u));
-    message.success(`Статус изменен на "${newStatus}"`);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const list = await api.users.list();
+      const mapped: CRMUser[] = list.map((u: any) => ({
+        key: String(u.id),
+        name: u.name || u.username || '',
+        email: u.email || u.username || '',
+        role: u.role || 'Teacher',
+        status: u.status || 'Активен',
+      }));
+      setUsers(mapped);
+    } catch (err: any) {
+      message.error(err.message || 'Ошибка загрузки пользователей');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = (key: string) => {
+  const handleToggleStatus = async (key: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'Активен' ? 'Заблокирован' : 'Активен';
+    try {
+      await api.users.update(Number(key), { status: newStatus });
+      setUsers(users.map(u => u.key === key ? { ...u, status: newStatus as CRMUser['status'] } : u));
+      message.success(`Статус изменен на "${newStatus}"`);
+    } catch (err: any) {
+      message.error(err.message || 'Ошибка изменения статуса');
+    }
+  };
+
+  const handleDelete = async (key: string) => {
     const target = users.find(u => u.key === key);
-    // Manager cannot delete Admin
     if (currentUserRole === 'Manager' && target?.role === 'Admin') {
       message.error('Менеджер не может удалить администратора');
       return;
     }
-    setUsers(users.filter(u => u.key !== key));
-    message.success('Сотрудник удален');
+    try {
+      await api.users.delete(Number(key));
+      setUsers(users.filter(u => u.key !== key));
+      message.success('Сотрудник удален');
+    } catch (err: any) {
+      message.error(err.message || 'Ошибка удаления');
+    }
   };
 
-  const openEditModal = (user: typeof initialUsers[0]) => {
+  const openEditModal = (user: CRMUser) => {
     setEditingUser(user);
     form.setFieldsValue(user);
     setIsModalVisible(true);
@@ -56,26 +85,46 @@ export default function UsersPage() {
   };
 
   const handleSave = () => {
-    form.validateFields().then(values => {
+    form.validateFields().then(async (values) => {
       if (editingUser) {
-        // Manager cannot change role to Admin
         if (currentUserRole === 'Manager' && values.role === 'Admin') {
           message.error('Менеджер не может назначить роль администратора');
           return;
         }
-        setUsers(users.map(u => u.key === editingUser.key ? { ...u, ...values } : u));
-        message.success('Данные обновлены!');
+        try {
+          await api.users.update(Number(editingUser.key), { name: values.name, role: values.role });
+          setUsers(users.map(u => u.key === editingUser.key ? { ...u, ...values } : u));
+          message.success('Данные обновлены!');
+          setIsModalVisible(false);
+        } catch (err: any) {
+          message.error(err.message || 'Ошибка обновления');
+        }
       } else {
-        // Manager cannot create Admin
         if (currentUserRole === 'Manager' && values.role === 'Admin') {
           message.error('Менеджер не может создать администратора');
           return;
         }
-        const newUser = { key: Date.now().toString(), ...values, status: 'Активен' };
-        setUsers([...users, newUser]);
-        message.success('Пользователь успешно создан!');
+        try {
+          const res = await api.users.create({
+            username: values.email,
+            password: values.password,
+            name: values.name,
+            role: values.role,
+          });
+          const newUser: CRMUser = {
+            key: String(res.id),
+            name: values.name,
+            email: values.email,
+            role: values.role,
+            status: 'Активен',
+          };
+          setUsers([...users, newUser]);
+          message.success('Пользователь успешно создан!');
+          setIsModalVisible(false);
+        } catch (err: any) {
+          message.error(err.message || 'Ошибка создания');
+        }
       }
-      setIsModalVisible(false);
     });
   };
 
@@ -102,7 +151,7 @@ export default function UsersPage() {
     {
       title: 'Управление',
       key: 'actions',
-      render: (_: any, record: typeof initialUsers[0]) => {
+      render: (_: any, record: CRMUser) => {
         const isSelf = record.email === currentUsername;
         const isAdminTarget = record.role === 'Admin';
         const isManager = currentUserRole === 'Manager';
@@ -160,7 +209,9 @@ export default function UsersPage() {
         )}
       </div>
 
-      <Table columns={columns} dataSource={users} rowKey="key" locale={{ emptyText: <Empty description="Нет сотрудников" /> }} />
+      <Spin spinning={loading}>
+        <Table columns={columns} dataSource={users} rowKey="key" locale={{ emptyText: <Empty description="Нет сотрудников" /> }} />
+      </Spin>
 
       <Modal
         title={editingUser ? 'Редактировать сотрудника' : 'Добавить сотрудника'}

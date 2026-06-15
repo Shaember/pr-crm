@@ -34,35 +34,40 @@ beforeEach(() => {
     isAuthenticated: false,
   });
   vi.clearAllMocks();
+  localStorage.clear();
   // Suppress antd message calls
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 describe('AuthPage', () => {
-  it('renders the login form with email, password, role select and submit button', () => {
+  it('renders the login form with email, password and submit button', () => {
     renderAuthPage();
 
     expect(screen.getByText('Вход в CRM')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('admin@example.com')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('admin@school.com')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Введите пароль')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /войти/i })).toBeInTheDocument();
   });
 
-  it('role select has 3 options (Admin, Manager, Teacher)', () => {
+  it('shows test account hints', () => {
     renderAuthPage();
 
-    // The select should exist; click to open dropdown and check options
-    const select = screen.getByRole('combobox');
-    expect(select).toBeInTheDocument();
+    expect(screen.getByText('Тестовые аккаунты:')).toBeInTheDocument();
+    expect(screen.getByText('admin@school.com / admin123')).toBeInTheDocument();
+    expect(screen.getByText('manager@school.com / manager123')).toBeInTheDocument();
+    expect(screen.getByText('teacher@school.com / teacher123')).toBeInTheDocument();
   });
 
   it('successful API login navigates to /dashboard', async () => {
     const user = userEvent.setup();
-    mockLogin.mockResolvedValue({ token: 'real-token-123' });
+    mockLogin.mockResolvedValue({
+      token: 'real-token-123',
+      user: { id: 1, username: 'admin@school.com', name: 'Admin', role: 'Admin' },
+    });
 
     renderAuthPage();
 
-    await user.type(screen.getByPlaceholderText('admin@example.com'), 'admin@example.com');
+    await user.type(screen.getByPlaceholderText('admin@school.com'), 'admin@school.com');
     await user.type(screen.getByPlaceholderText('Введите пароль'), 'password123');
     await user.click(screen.getByRole('button', { name: /войти/i }));
 
@@ -70,7 +75,7 @@ describe('AuthPage', () => {
       expect(screen.getByText('Dashboard Page')).toBeInTheDocument();
     });
 
-    expect(mockLogin).toHaveBeenCalledWith('admin@example.com', 'password123');
+    expect(mockLogin).toHaveBeenCalledWith('admin@school.com', 'password123');
   });
 
   it('failed API login falls back to mock login and still navigates', async () => {
@@ -79,7 +84,7 @@ describe('AuthPage', () => {
 
     renderAuthPage();
 
-    await user.type(screen.getByPlaceholderText('admin@example.com'), 'user@test.com');
+    await user.type(screen.getByPlaceholderText('admin@school.com'), 'user@test.com');
     await user.type(screen.getByPlaceholderText('Введите пароль'), 'pass');
     await user.click(screen.getByRole('button', { name: /войти/i }));
 

@@ -2,7 +2,20 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { api } from '../../services/api';
 import CoursesPage from '../CoursesPage';
+
+// Mock the api module
+vi.mock('../../services/api', () => ({
+  api: {
+    courses: { list: vi.fn(), create: vi.fn() },
+  },
+}));
+
+const mockCourses = [
+  { id: 1, name: 'Основы React', teacher: 'Анна Преподаватель', students_count: 15, status: 'Активен' },
+  { id: 2, name: 'Продвинутый TypeScript', teacher: 'Иван Сергеев', students_count: 8, status: 'Активен' },
+];
 
 // Mock ResizeObserver for antd Select components in modals
 class ResizeObserverMock {
@@ -23,13 +36,18 @@ function renderCourses() {
 describe('CoursesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (api.courses.list as any).mockResolvedValue(mockCourses);
   });
 
-  it('renders the courses table with initial data', () => {
+  it('renders the courses table with initial data', async () => {
     useAuthStore.setState({ user: { username: 'admin@test.com', role: 'Admin' } });
     renderCourses();
 
     expect(screen.getByText('Курсы')).toBeInTheDocument();
+
+    // Wait for API data to load
+    await screen.findByText('Основы React');
+
     expect(screen.getByText('Основы React')).toBeInTheDocument();
     expect(screen.getByText('Продвинутый TypeScript')).toBeInTheDocument();
     expect(screen.getByText('Анна Преподаватель')).toBeInTheDocument();
@@ -43,9 +61,7 @@ describe('CoursesPage', () => {
     expect(screen.getByText('Создать курс')).toBeInTheDocument();
   });
 
-  it('hides create button for Teacher (no "courses" create permission)', () => {
-    // Teacher has 'courses' in permissions (view), but the code uses hasPermission(role, 'courses')
-    // which returns true for Teacher. Test actual behavior:
+  it('shows create button for Teacher (has courses permission)', () => {
     useAuthStore.setState({ user: { username: 'teacher@test.com', role: 'Teacher' } });
     renderCourses();
 
@@ -57,6 +73,9 @@ describe('CoursesPage', () => {
     const user = userEvent.setup();
     useAuthStore.setState({ user: { username: 'admin@test.com', role: 'Admin' } });
     renderCourses();
+
+    // Wait for data to load first
+    await screen.findByText('Основы React');
 
     // Click create button
     await user.click(screen.getByText('Создать курс'));
@@ -73,9 +92,12 @@ describe('CoursesPage', () => {
     expect(within(dialog).getByText('Название курса')).toBeInTheDocument();
   });
 
-  it('renders table columns correctly', () => {
+  it('renders table columns correctly', async () => {
     useAuthStore.setState({ user: { username: 'admin@test.com', role: 'Admin' } });
     renderCourses();
+
+    // Wait for data to load
+    await screen.findByText('Основы React');
 
     expect(screen.getByText('Название курса')).toBeInTheDocument();
     expect(screen.getByText('Преподаватель')).toBeInTheDocument();

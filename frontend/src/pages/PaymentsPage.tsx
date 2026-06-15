@@ -1,52 +1,78 @@
-import { useState } from 'react';
-import { Typography, Table, Button, Tag, Modal, Form, Select, InputNumber, message, DatePicker, Empty } from 'antd';
+import { useState, useEffect } from 'react';
+import { Typography, Table, Button, Tag, Modal, Form, Select, Input, InputNumber, message, DatePicker, Empty, Spin } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { api } from '../services/api';
 import type { Payment } from '../types';
 
 const { Title } = Typography;
 const { Option } = Select;
 
-const initialData: Payment[] = [
-  { key: '1', id: 'TXN-1001', student: 'Иван Иванов', amount: 15000, date: '2026-05-01', status: 'Оплачен' },
-  { key: '2', id: 'TXN-1002', student: 'Алексей Смирнов', amount: 40000, date: '2026-05-02', status: 'Просрочен' },
-  { key: '3', id: 'TXN-1003', student: 'Мария Петрова', amount: 15000, date: '2026-05-04', status: 'В ожидании' },
-];
-
-const studentMap: Record<string, string> = {
-  ivan: 'Иван Иванов',
-  alex: 'Алексей Смирнов',
-  maria: 'Мария Петрова',
-};
-
-let txnCounter = 1003;
-
 export default function PaymentsPage() {
-  const [data, setData] = useState<Payment[]>(initialData);
+  const [data, setData] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [form] = Form.useForm();
 
-  const handleDelete = (key: string) => {
-    setData(data.filter(item => item.key !== key));
-    message.success('Транзакция удалена');
+  useEffect(() => {
+    fetchPayments();
+  }, []);
+
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      const payments = await api.payments.list();
+      const mapped: Payment[] = payments.map((p: any) => ({
+        key: String(p.id),
+        id: p.transaction_id || `TXN-${p.id}`,
+        student: p.student_name || p.student || '',
+        amount: p.amount,
+        date: p.date || '',
+        status: p.status || 'В ожидании',
+      }));
+      setData(mapped);
+    } catch (err: any) {
+      message.error(err.message || 'Ошибка загрузки платежей');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (key: string) => {
+    try {
+      await api.payments.delete(Number(key));
+      setData(data.filter(item => item.key !== key));
+      message.success('Транзакция удалена');
+    } catch (err: any) {
+      message.error(err.message || 'Ошибка удаления');
+    }
   };
 
   const handleAdd = () => {
-    form.validateFields().then(values => {
-      txnCounter++;
-      const newPayment: Payment = {
-        key: Date.now().toString(),
-        id: `TXN-${txnCounter}`,
-        student: studentMap[values.student] || values.student,
-        amount: values.amount,
-        date: values.date ? values.date.format('YYYY-MM-DD') : new Date().toISOString().split('T')[0],
-        status: 'В ожидании',
-      };
-      setData([...data, newPayment]);
-      message.success('Счет выставлен!');
-      form.resetFields();
-      setIsModalVisible(false);
+    form.validateFields().then(async (values) => {
+      try {
+        const dateStr = values.date ? values.date.format('YYYY-MM-DD') : new Date().toISOString().split('T')[0];
+        const res = await api.payments.create({
+          student_name: values.student,
+          amount: values.amount,
+          date: dateStr,
+        });
+        const newPayment: Payment = {
+          key: String(res.id),
+          id: `TXN-${res.id}`,
+          student: values.student,
+          amount: values.amount,
+          date: dateStr,
+          status: 'В ожидании',
+        };
+        setData([...data, newPayment]);
+        message.success('Счет выставлен!');
+        form.resetFields();
+        setIsModalVisible(false);
+      } catch (err: any) {
+        message.error(err.message || 'Ошибка создания платежа');
+      }
     });
   };
 
@@ -106,11 +132,14 @@ export default function PaymentsPage() {
         </Select>
       </div>
 
-      <Table
-        columns={columns}
-        dataSource={filteredData}
-        locale={{ emptyText: <Empty description="Нет платежей" /> }}
-      />
+      <Spin spinning={loading}>
+        <Table
+          columns={columns}
+          dataSource={filteredData}
+          rowKey="key"
+          locale={{ emptyText: <Empty description="Нет платежей" /> }}
+        />
+      </Spin>
 
       <Modal
         title="Создание счета"
@@ -121,12 +150,8 @@ export default function PaymentsPage() {
         cancelText="Отмена"
       >
         <Form form={form} layout="vertical">
-          <Form.Item label="Студент" name="student" rules={[{ required: true, message: 'Выберите студента' }]}>
-            <Select placeholder="Выберите студента">
-              <Option value="ivan">Иван Иванов</Option>
-              <Option value="alex">Алексей Смирнов</Option>
-              <Option value="maria">Мария Петрова</Option>
-            </Select>
+          <Form.Item label="Студент" name="student" rules={[{ required: true, message: 'Введите имя студента' }]}>
+            <Input placeholder="Имя студента" />
           </Form.Item>
           <Form.Item label="Сумма (₽)" name="amount" rules={[{ required: true, message: 'Введите сумму' }]}>
             <InputNumber style={{ width: '100%' }} min={0} placeholder="15000" />

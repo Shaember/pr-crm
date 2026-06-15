@@ -1,28 +1,59 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { api } from '../../../services/api';
 import StudentsDataTable from '../StudentsDataTable';
 
+// Mock the api module
+vi.mock('../../../services/api', () => ({
+  api: {
+    students: { list: vi.fn() },
+  },
+}));
+
+const mockStudents = [
+  { id: 1, name: 'Иван Иванов', email: 'ivan@test.com', phone: '+7 999 111 2233', status: 'Активен', debt: 15000, enrollment_date: '2024-01-10' },
+  { id: 2, name: 'Алексей Смирнов', email: 'alex@test.com', phone: '+7 999 222 3344', status: 'Активен', debt: 40000, enrollment_date: '2024-02-15' },
+  { id: 3, name: 'Мария Петрова', email: 'maria@test.com', phone: '+7 999 333 4455', status: 'Отстранен', debt: 0, enrollment_date: '2024-03-01' },
+];
+
 describe('StudentsDataTable', () => {
-  it('renders the data table with student rows', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (api.students.list as any).mockResolvedValue(mockStudents);
+  });
+
+  it('renders the data table with student rows', async () => {
     render(<StudentsDataTable />);
+
+    await screen.findByText('Иван Иванов');
+
     expect(screen.getByText('Иван Иванов')).toBeInTheDocument();
     expect(screen.getByText('Алексей Смирнов')).toBeInTheDocument();
     expect(screen.getByText('Мария Петрова')).toBeInTheDocument();
   });
 
-  it('renders search input', () => {
+  it('renders search input', async () => {
     render(<StudentsDataTable />);
+
+    await screen.findByText('Иван Иванов');
+
     expect(screen.getByPlaceholderText('Поиск по имени или email...')).toBeInTheDocument();
   });
 
-  it('renders status and debt filter selects', () => {
+  it('renders status and debt filter selects', async () => {
     render(<StudentsDataTable />);
+
+    await screen.findByText('Иван Иванов');
+
     expect(screen.getByText('Фильтр по статусу')).toBeInTheDocument();
     expect(screen.getByText('Фильтр по долгу')).toBeInTheDocument();
   });
 
-  it('renders column headers', () => {
+  it('renders column headers', async () => {
     render(<StudentsDataTable />);
+
+    await screen.findByText('Иван Иванов');
+
     expect(screen.getByText('Имя')).toBeInTheDocument();
     expect(screen.getByText('Email')).toBeInTheDocument();
     expect(screen.getByText('Статус')).toBeInTheDocument();
@@ -31,22 +62,31 @@ describe('StudentsDataTable', () => {
     expect(screen.getByText('Действия')).toBeInTheDocument();
   });
 
-  it('displays student status badges', () => {
+  it('displays student status badges', async () => {
     render(<StudentsDataTable />);
+
+    await screen.findByText('Иван Иванов');
+
     expect(screen.getAllByText('АКТИВЕН').length).toBe(2);
     expect(screen.getByText('ОТСТРАНЕН')).toBeInTheDocument();
   });
 
-  it('displays debt amounts', () => {
+  it('displays debt amounts', async () => {
     render(<StudentsDataTable />);
-    expect(screen.getByText('15 000 ₽')).toBeInTheDocument();
-    expect(screen.getByText('40 000 ₽')).toBeInTheDocument();
+
+    await screen.findByText('Иван Иванов');
+
+    // Use flexible matchers since toLocaleString formatting may vary
+    expect(screen.getByText((content) => content.includes('15') && content.includes('000') && content.includes('₽'))).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('40') && content.includes('000') && content.includes('₽'))).toBeInTheDocument();
     expect(screen.getByText('0 ₽')).toBeInTheDocument();
   });
 
   it('shows StudentCard when profile button is clicked', async () => {
     const user = userEvent.setup();
     render(<StudentsDataTable />);
+
+    await screen.findByText('Иван Иванов');
 
     const profileButtons = screen.getAllByText('Профиль');
     await user.click(profileButtons[0]);
@@ -58,6 +98,8 @@ describe('StudentsDataTable', () => {
   it('returns to table when back button is clicked in StudentCard', async () => {
     const user = userEvent.setup();
     render(<StudentsDataTable />);
+
+    await screen.findByText('Иван Иванов');
 
     // Click profile to open StudentCard
     const profileButtons = screen.getAllByText('Профиль');
@@ -77,6 +119,8 @@ describe('StudentsDataTable', () => {
     const user = userEvent.setup();
     render(<StudentsDataTable />);
 
+    await screen.findByText('Иван Иванов');
+
     const searchInput = screen.getByPlaceholderText('Поиск по имени или email...');
     await user.type(searchInput, 'Иван');
 
@@ -88,6 +132,8 @@ describe('StudentsDataTable', () => {
   it('shows empty message when search has no matches', async () => {
     const user = userEvent.setup();
     render(<StudentsDataTable />);
+
+    await screen.findByText('Иван Иванов');
 
     const searchInput = screen.getByPlaceholderText('Поиск по имени или email...');
     await user.type(searchInput, 'НесуществующийСтудент');

@@ -1,7 +1,21 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
+import { api } from '../../services/api';
 import PaymentsPage from '../PaymentsPage';
+
+// Mock the api module
+vi.mock('../../services/api', () => ({
+  api: {
+    payments: { list: vi.fn(), create: vi.fn(), delete: vi.fn() },
+  },
+}));
+
+const mockPayments = [
+  { id: 1, transaction_id: 'TXN-1001', student_name: 'Иван Иванов', amount: 15000, date: '2024-01-15', status: 'Оплачен' },
+  { id: 2, transaction_id: 'TXN-1002', student_name: 'Алексей Смирнов', amount: 40000, date: '2024-01-20', status: 'Просрочен' },
+  { id: 3, transaction_id: 'TXN-1003', student_name: 'Мария Петрова', amount: 15000, date: '2024-02-01', status: 'В ожидании' },
+];
 
 function renderPayments() {
   return render(
@@ -14,14 +28,20 @@ function renderPayments() {
 describe('PaymentsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (api.payments.list as any).mockResolvedValue(mockPayments);
+    (api.payments.delete as any).mockResolvedValue({ deleted: true });
     // Suppress antd message
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  it('renders the payments table with initial data', () => {
+  it('renders the payments table with initial data', async () => {
     renderPayments();
 
     expect(screen.getByText('Платежи')).toBeInTheDocument();
+
+    // Wait for API data to load
+    await screen.findByText('TXN-1001');
+
     expect(screen.getByText('TXN-1001')).toBeInTheDocument();
     expect(screen.getByText('TXN-1002')).toBeInTheDocument();
     expect(screen.getByText('TXN-1003')).toBeInTheDocument();
@@ -30,8 +50,11 @@ describe('PaymentsPage', () => {
     expect(screen.getByText('Мария Петрова')).toBeInTheDocument();
   });
 
-  it('renders table column headers', () => {
+  it('renders table column headers', async () => {
     renderPayments();
+
+    // Wait for data to load
+    await screen.findByText('TXN-1001');
 
     expect(screen.getByText('ID')).toBeInTheDocument();
     expect(screen.getByText('Студент')).toBeInTheDocument();
@@ -45,6 +68,9 @@ describe('PaymentsPage', () => {
     const user = userEvent.setup();
     renderPayments();
 
+    // Wait for data to load
+    await screen.findByText('TXN-1001');
+
     await user.click(screen.getByText('Создать счет'));
 
     await waitFor(() => {
@@ -56,13 +82,15 @@ describe('PaymentsPage', () => {
     const user = userEvent.setup();
     renderPayments();
 
-    // All 3 payments should be visible initially
+    // Wait for data to load
+    await screen.findByText('TXN-1001');
+
+    // All 3 payments should be visible
     expect(screen.getByText('TXN-1001')).toBeInTheDocument();
     expect(screen.getByText('TXN-1002')).toBeInTheDocument();
     expect(screen.getByText('TXN-1003')).toBeInTheDocument();
 
     // Find and click the delete button for the first row (TXN-1001)
-    // The delete buttons are danger text buttons with DeleteOutlined icon
     const rows = document.querySelectorAll('tbody tr');
     expect(rows.length).toBe(3);
 
@@ -85,6 +113,9 @@ describe('PaymentsPage', () => {
     const user = userEvent.setup();
     renderPayments();
 
+    // Wait for data to load
+    await screen.findByText('TXN-1001');
+
     const searchInput = screen.getByPlaceholderText('Поиск по студенту или ID...');
     await user.type(searchInput, 'Мария');
 
@@ -102,6 +133,9 @@ describe('PaymentsPage', () => {
     const user = userEvent.setup();
     renderPayments();
 
+    // Wait for data to load
+    await screen.findByText('TXN-1001');
+
     const searchInput = screen.getByPlaceholderText('Поиск по студенту или ID...');
     await user.type(searchInput, 'TXN-1002');
 
@@ -113,8 +147,11 @@ describe('PaymentsPage', () => {
     expect(screen.queryByText('TXN-1003')).not.toBeInTheDocument();
   });
 
-  it('displays payment amounts formatted with currency', () => {
+  it('displays payment amounts formatted with currency', async () => {
     renderPayments();
+
+    // Wait for data to load
+    await screen.findByText('TXN-1001');
 
     // Amounts should be rendered with ₽ suffix
     // Note: two payments have 15000 (TXN-1001 and TXN-1003)
@@ -124,8 +161,11 @@ describe('PaymentsPage', () => {
     expect(amounts40k.length).toBe(1);
   });
 
-  it('displays payment status tags with correct labels', () => {
+  it('displays payment status tags with correct labels', async () => {
     renderPayments();
+
+    // Wait for data to load
+    await screen.findByText('TXN-1001');
 
     expect(screen.getByText('Оплачен')).toBeInTheDocument();
     expect(screen.getByText('Просрочен')).toBeInTheDocument();
