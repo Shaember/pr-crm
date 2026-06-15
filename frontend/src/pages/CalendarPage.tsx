@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
-import withDragAndDropModule from 'react-big-calendar/lib/addons/dragAndDrop';
+import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import moment from 'moment';
-// @ts-ignore
 import 'moment/locale/ru';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
@@ -10,14 +9,32 @@ import { Typography, Modal, Form, Select, DatePicker, message, Button } from 'an
 
 moment.locale('ru');
 const localizer = momentLocalizer(moment);
-const withDragAndDrop = typeof withDragAndDropModule === 'function' ? withDragAndDropModule : (withDragAndDropModule as any).default;
-const DnDCalendar = withDragAndDrop(Calendar as any);
+
+// Type-safe DnD calendar wrapper
+const DnDCalendar = withDragAndDrop(Calendar) as React.ComponentType<any>;
 
 const { Title } = Typography;
 const { Option } = Select;
 
+const courseLabels: Record<string, string> = {
+  react: 'Основы React',
+  ts: 'Продвинутый TypeScript',
+};
+
+const teacherLabels: Record<string, string> = {
+  anna: 'Анна Преподаватель',
+  ivan: 'Иван Сергеев',
+};
+
+interface CalendarEventType {
+  id: number;
+  title: string;
+  start: Date;
+  end: Date;
+}
+
 export default function CalendarPage() {
-  const [events, setEvents] = useState([
+  const [events, setEvents] = useState<CalendarEventType[]>([
     {
       id: 1,
       title: 'Основы React - Группа 1',
@@ -33,14 +50,14 @@ export default function CalendarPage() {
   ]);
 
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [form] = Form.useForm();
 
   const handleSelectSlot = () => {
     setIsModalVisible(true);
   };
 
-  const handleEventDrop = ({ event, start, end }: any) => {
-    // Conflict detection mockup
-    const hasConflict = events.some(e => e.id !== event.id && 
+  const handleEventDrop = ({ event, start, end }: { event: CalendarEventType; start: Date; end: Date }) => {
+    const hasConflict = events.some(e => e.id !== event.id &&
       ((start >= e.start && start < e.end) || (end > e.start && end <= e.end))
     );
 
@@ -55,8 +72,32 @@ export default function CalendarPage() {
   };
 
   const handleAddLesson = () => {
-    message.success('Урок добавлен!');
-    setIsModalVisible(false);
+    form.validateFields().then(values => {
+      const courseName = courseLabels[values.course] || values.course;
+      const teacherName = teacherLabels[values.teacher] || values.teacher;
+      const [start, end] = values.timeRange;
+
+      const hasConflict = events.some(e =>
+        (start.toDate() >= e.start && start.toDate() < e.end) || (end.toDate() > e.start && end.toDate() <= e.end)
+      );
+
+      if (hasConflict) {
+        message.error('Конфликт расписания: на это время уже назначено занятие');
+        return;
+      }
+
+      const newEvent: CalendarEventType = {
+        id: Date.now(),
+        title: `${courseName} — ${teacherName}`,
+        start: start.toDate(),
+        end: end.toDate(),
+      };
+
+      setEvents([...events, newEvent]);
+      message.success('Урок добавлен!');
+      form.resetFields();
+      setIsModalVisible(false);
+    });
   };
 
   return (
@@ -88,21 +129,30 @@ export default function CalendarPage() {
         />
       </div>
 
-      <Modal title="Запланировать урок" open={isModalVisible} onOk={handleAddLesson} onCancel={() => setIsModalVisible(false)} okText="Сохранить" cancelText="Отмена">
-        <Form layout="vertical">
-          <Form.Item label="Курс">
+      <Modal
+        title="Запланировать урок"
+        open={isModalVisible}
+        onOk={handleAddLesson}
+        onCancel={() => { form.resetFields(); setIsModalVisible(false); }}
+        okText="Сохранить"
+        cancelText="Отмена"
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item label="Курс" name="course" rules={[{ required: true, message: 'Выберите курс' }]}>
             <Select placeholder="Выберите курс">
               <Option value="react">Основы React</Option>
               <Option value="ts">Продвинутый TypeScript</Option>
             </Select>
           </Form.Item>
-          <Form.Item label="Преподаватель">
+          <Form.Item label="Преподаватель" name="teacher" rules={[{ required: true, message: 'Выберите преподавателя' }]}>
             <Select placeholder="Выберите преподавателя">
               <Option value="anna">Анна Преподаватель</Option>
               <Option value="ivan">Иван Сергеев</Option>
             </Select>
           </Form.Item>
-          <Form.Item label="Время"><DatePicker.RangePicker showTime style={{ width: '100%' }} /></Form.Item>
+          <Form.Item label="Время" name="timeRange" rules={[{ required: true, message: 'Выберите время' }]}>
+            <DatePicker.RangePicker showTime style={{ width: '100%' }} />
+          </Form.Item>
         </Form>
       </Modal>
     </div>
