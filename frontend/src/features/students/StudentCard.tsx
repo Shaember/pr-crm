@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Button, Descriptions, Typography, Space, Divider, message, Dropdown, Modal, Form, Input, Select, InputNumber } from 'antd';
 import type { MenuProps } from 'antd';
 import { MailOutlined, EditOutlined, DollarOutlined, BookOutlined, DownOutlined, FilePdfOutlined, ContainerOutlined, CalendarOutlined } from '@ant-design/icons';
@@ -6,8 +6,11 @@ import StudentStatusBadge from './StudentStatusBadge';
 import type { Student } from '../../types';
 import { useAuthStore } from '../../store/authStore';
 import { hasPermission } from '../../config/roles';
+import { api } from '../../services/api';
 
 const { Title } = Typography;
+
+interface CourseOption { id: number; name: string; }
 
 interface StudentCardProps {
   student: Student;
@@ -22,6 +25,12 @@ export default function StudentCard({ student, onBack }: StudentCardProps) {
   const [isNoteModalVisible, setIsNoteModalVisible] = useState(false);
   const [status, setStatus] = useState(student.status);
   const [showAttendance, setShowAttendance] = useState(false);
+  const [courses, setCourses] = useState<CourseOption[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
+
+  useEffect(() => {
+    api.courses.list().then((rows: any[]) => setCourses(rows.map(c => ({ id: c.id, name: c.name })))).catch(() => {});
+  }, []);
 
   const role = useAuthStore((s) => s.user?.role);
   const canEditStudent = hasPermission(role, 'students.edit');
@@ -61,6 +70,9 @@ export default function StudentCard({ student, onBack }: StudentCardProps) {
           <Descriptions.Item label="Дата зачисления">{student.enrollmentDate || '—'}</Descriptions.Item>
           <Descriptions.Item label="Текущий долг" style={{ color: student.debt > 0 ? 'red' : 'green' }}>
             {student.debt > 0 ? `${student.debt.toLocaleString('ru-RU')} ₽` : '0 ₽'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Ежемесячная плата">
+            {student.monthly_fee > 0 ? `${student.monthly_fee.toLocaleString('ru-RU')} ₽` : '—'}
           </Descriptions.Item>
         </Descriptions>
       ) : (
@@ -130,12 +142,21 @@ export default function StudentCard({ student, onBack }: StudentCardProps) {
         </Form>
       </Modal>
 
-      <Modal title="Назначить курс" open={isAssignCourseModalVisible} onOk={() => { message.success('Курс успешно назначен'); setIsAssignCourseModalVisible(false); }} onCancel={() => setIsAssignCourseModalVisible(false)} okText="Назначить" cancelText="Отмена">
+      <Modal title="Назначить курс" open={isAssignCourseModalVisible} onOk={async () => {
+        if (!selectedCourseId) { message.warning('Выберите курс'); return; }
+        try {
+          await api.students.assignCourse(Number(student.key), selectedCourseId);
+          message.success('Курс успешно назначен');
+          setIsAssignCourseModalVisible(false);
+          setSelectedCourseId(null);
+        } catch (err: any) {
+          message.error(err.message || 'Ошибка назначения курса');
+        }
+      }} onCancel={() => setIsAssignCourseModalVisible(false)} okText="Назначить" cancelText="Отмена">
         <Form layout="vertical">
           <Form.Item label="Выберите курс">
-            <Select placeholder="Курс">
-              <Select.Option value="react">Основы React</Select.Option>
-              <Select.Option value="ts">Продвинутый TypeScript</Select.Option>
+            <Select placeholder="Курс" onChange={(val) => setSelectedCourseId(val)}>
+              {courses.map(c => <Select.Option key={c.id} value={c.id}>{c.name}</Select.Option>)}
             </Select>
           </Form.Item>
         </Form>

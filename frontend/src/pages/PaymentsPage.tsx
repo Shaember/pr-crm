@@ -30,6 +30,9 @@ export default function PaymentsPage() {
         amount: p.amount,
         date: p.date || '',
         status: p.status || 'В ожидании',
+        period_months: p.period_months || 1,
+        start_date: p.start_date || '',
+        end_date: p.end_date || '',
       }));
       setData(mapped);
     } catch (err: any) {
@@ -52,19 +55,24 @@ export default function PaymentsPage() {
   const handleAdd = () => {
     form.validateFields().then(async (values) => {
       try {
-        const dateStr = values.date ? values.date.format('YYYY-MM-DD') : new Date().toISOString().split('T')[0];
+        const startDateStr = values.start_date ? values.start_date.format('YYYY-MM-DD') : new Date().toISOString().split('T')[0];
         const res = await api.payments.create({
           student_name: values.student,
           amount: values.amount,
-          date: dateStr,
+          date: startDateStr,
+          start_date: startDateStr,
+          period_months: values.period_months || 1,
         });
         const newPayment: Payment = {
           key: String(res.id),
           id: `TXN-${res.id}`,
           student: values.student,
           amount: values.amount,
-          date: dateStr,
+          date: startDateStr,
+          start_date: startDateStr,
+          end_date: '',
           status: 'В ожидании',
+          period_months: values.period_months || 1,
         };
         setData([...data, newPayment]);
         message.success('Счет выставлен!');
@@ -86,7 +94,25 @@ export default function PaymentsPage() {
     { title: 'ID', dataIndex: 'id', key: 'id' },
     { title: 'Студент', dataIndex: 'student', key: 'student' },
     { title: 'Сумма', dataIndex: 'amount', key: 'amount', render: (val: number) => `${val.toLocaleString('ru-RU')} ₽` },
+    { title: 'Период', dataIndex: 'period_months', key: 'period_months', render: (months: number) => {
+        const labels: Record<number, string> = { 1: '1 мес', 3: '3 мес', 6: '6 мес', 12: '12 мес' };
+        return labels[months] || `${months} мес`;
+      }
+    },
     { title: 'Дата', dataIndex: 'date', key: 'date' },
+    { title: 'Начало', dataIndex: 'start_date', key: 'start_date' },
+    { title: 'Окончание', dataIndex: 'end_date', key: 'end_date' },
+    { title: 'Осталось', key: 'days_remaining', render: (_: unknown, record: Payment) => {
+        if (!record.end_date) return '—';
+        const end = new Date(record.end_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (diff < 0) return <span style={{ color: 'red' }}>Истёк</span>;
+        if (diff <= 7) return <span style={{ color: 'orange' }}>{diff} дн.</span>;
+        return <span style={{ color: 'green' }}>{diff} дн.</span>;
+      }
+    },
     {
       title: 'Статус',
       dataIndex: 'status',
@@ -156,8 +182,16 @@ export default function PaymentsPage() {
           <Form.Item label="Сумма (₽)" name="amount" rules={[{ required: true, message: 'Введите сумму' }]}>
             <InputNumber style={{ width: '100%' }} min={0} placeholder="15000" />
           </Form.Item>
-          <Form.Item label="Срок оплаты" name="date" rules={[{ required: true, message: 'Выберите дату' }]}>
+          <Form.Item label="Дата начала" name="start_date" rules={[{ required: true, message: 'Выберите дату' }]}>
             <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="Период оплаты" name="period_months" initialValue={1}>
+            <Select>
+              <Option value={1}>1 месяц</Option>
+              <Option value={3}>3 месяца</Option>
+              <Option value={6}>6 месяцев</Option>
+              <Option value={12}>12 месяцев</Option>
+            </Select>
           </Form.Item>
         </Form>
       </Modal>

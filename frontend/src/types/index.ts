@@ -5,6 +5,7 @@ export interface Student {
   phone?: string;
   status: 'Активен' | 'Отстранен' | 'Выпущен' | 'Отчислен';
   course: string[];
+  monthly_fee: number;
   debt: number;
   enrollmentDate?: string;
 }
@@ -23,7 +24,10 @@ export interface Payment {
   id: string;
   student: string;
   amount: number;
+  period_months: number;
   date: string;
+  start_date: string;
+  end_date: string;
   status: 'Оплачен' | 'В ожидании' | 'Просрочен';
 }
 

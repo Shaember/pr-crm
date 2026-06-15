@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
-import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
+import dnd from 'react-big-calendar/lib/addons/dragAndDrop';
 import moment from 'moment';
 import 'moment/locale/ru';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -10,8 +10,9 @@ import { Typography, Modal, Form, Select, DatePicker, message, Button } from 'an
 moment.locale('ru');
 const localizer = momentLocalizer(moment);
 
-// Type-safe DnD calendar wrapper
-const DnDCalendar = withDragAndDrop(Calendar) as React.ComponentType<any>;
+// react-big-calendar DnD addon — handle CJS/ESM interop
+const withDragAndDrop = (dnd as any).default || dnd;
+const DnDCalendar = withDragAndDrop(Calendar);
 
 const { Title } = Typography;
 const { Option } = Select;

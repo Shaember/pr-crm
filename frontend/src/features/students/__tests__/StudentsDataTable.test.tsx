@@ -6,20 +6,27 @@ import StudentsDataTable from '../StudentsDataTable';
 // Mock the api module
 vi.mock('../../../services/api', () => ({
   api: {
-    students: { list: vi.fn() },
+    students: { list: vi.fn(), assignCourse: vi.fn(), removeCourse: vi.fn() },
+    courses: { list: vi.fn() },
   },
 }));
 
 const mockStudents = [
-  { id: 1, name: 'Иван Иванов', email: 'ivan@test.com', phone: '+7 999 111 2233', status: 'Активен', debt: 15000, enrollment_date: '2024-01-10' },
-  { id: 2, name: 'Алексей Смирнов', email: 'alex@test.com', phone: '+7 999 222 3344', status: 'Активен', debt: 40000, enrollment_date: '2024-02-15' },
-  { id: 3, name: 'Мария Петрова', email: 'maria@test.com', phone: '+7 999 333 4455', status: 'Отстранен', debt: 0, enrollment_date: '2024-03-01' },
+  { id: 1, name: 'Иван Иванов', email: 'ivan@test.com', phone: '+7 999 111 2233', status: 'Активен', monthly_fee: 15000, debt: 15000, enrollment_date: '2024-01-10' },
+  { id: 2, name: 'Алексей Смирнов', email: 'alex@test.com', phone: '+7 999 222 3344', status: 'Активен', monthly_fee: 20000, debt: 40000, enrollment_date: '2024-02-15' },
+  { id: 3, name: 'Мария Петрова', email: 'maria@test.com', phone: '+7 999 333 4455', status: 'Отстранен', monthly_fee: 15000, debt: 0, enrollment_date: '2024-03-01' },
+];
+
+const mockCourses = [
+  { id: 1, name: 'Основы React', teacher: 'Анна', price_per_month: 15000, status: 'Активен' },
+  { id: 2, name: 'TypeScript', teacher: 'Иван', price_per_month: 20000, status: 'Активен' },
 ];
 
 describe('StudentsDataTable', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (api.students.list as any).mockResolvedValue(mockStudents);
+    (api.courses.list as any).mockResolvedValue(mockCourses);
   });
 
   it('renders the data table with student rows', async () => {
@@ -77,9 +84,11 @@ describe('StudentsDataTable', () => {
     await screen.findByText('Иван Иванов');
 
     // Use flexible matchers since toLocaleString formatting may vary
-    expect(screen.getByText((content) => content.includes('15') && content.includes('000') && content.includes('₽'))).toBeInTheDocument();
-    expect(screen.getByText((content) => content.includes('40') && content.includes('000') && content.includes('₽'))).toBeInTheDocument();
-    expect(screen.getByText('0 ₽')).toBeInTheDocument();
+    // Note: "15 000 ₽" appears in both debt and monthly_fee columns
+    const debtElements = screen.getAllByText((content) => content.includes('15') && content.includes('000') && content.includes('₽'));
+    expect(debtElements.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText((content) => content.includes('40') && content.includes('000') && content.includes('₽')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('0 ₽').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows StudentCard when profile button is clicked', async () => {

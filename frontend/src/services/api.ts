@@ -80,6 +80,15 @@ export const api = {
       request<{ deleted: boolean }>(`/api/students/${id}`, {
         method: 'DELETE',
       }),
+    assignCourse: (id: number, courseId: number) =>
+      request<{ updated: boolean }>(`/api/students/${id}/courses`, {
+        method: 'POST',
+        body: JSON.stringify({ course_id: courseId }),
+      }),
+    removeCourse: (id: number, courseId: number) =>
+      request<{ deleted: boolean }>(`/api/students/${id}/courses/${courseId}`, {
+        method: 'DELETE',
+      }),
   },
 
   // ============================================================
@@ -108,7 +117,7 @@ export const api = {
   // ============================================================
   payments: {
     list: () => request<any[]>('/api/payments'),
-    create: (data: { student_id?: number; student_name?: string; amount: number; date?: string; status?: string }) =>
+    create: (data: { student_id?: number; student_name?: string; amount: number; date?: string; start_date?: string; status?: string; period_months?: number }) =>
       request<{ id: number }>('/api/payments', {
         method: 'POST',
         body: JSON.stringify(data),

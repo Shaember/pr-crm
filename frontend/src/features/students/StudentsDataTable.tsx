@@ -18,6 +18,7 @@ interface ApiStudent {
   debt: number;
   enrollment_date?: string;
   created_at?: string;
+  monthly_fee?: number;
 }
 
 /** Map an API row into the frontend Student type */
@@ -31,6 +32,7 @@ function mapApiStudent(row: ApiStudent): Student {
     course: [],          // list endpoint does not include courses
     debt: row.debt ?? 0,
     enrollmentDate: row.enrollment_date,
+    monthly_fee: row.monthly_fee ?? 0,
   };
 }
 
@@ -86,6 +88,11 @@ export default function StudentsDataTable() {
         debt > 0 ? <span style={{ color: 'red', fontWeight: 'bold' }}>{debt.toLocaleString('ru-RU')} ₽</span> : <span style={{ color: 'green' }}>0 ₽</span>
       ),
       sorter: (a: Student, b: Student) => a.debt - b.debt,
+    },
+    { title: 'Абон. плата', dataIndex: 'monthly_fee', key: 'monthly_fee', render: (fee: number) => (
+        fee > 0 ? `${fee.toLocaleString('ru-RU')} ₽/мес` : '—'
+      ),
+      sorter: (a: Student, b: Student) => (a.monthly_fee ?? 0) - (b.monthly_fee ?? 0),
     },
     { title: 'Действия', key: 'actions', render: (_: any, record: Student) => (
         <Button type="link" onClick={() => setSelectedStudent(record)}>Профиль</Button>
